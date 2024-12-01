@@ -19,7 +19,9 @@ def main(ranking_json1, ranking_json2):
     conflict_core = []
     for elem in elements1:
         if elem not in elements2:
-            conflict_core.append(str(elem))  # Приводим к строке для результата
+            conflict_core.append(str(elem))
 
     return json.dumps([conflict_core])
 
+if __name__ == "__main__":
+    main()

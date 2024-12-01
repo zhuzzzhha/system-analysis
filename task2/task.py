@@ -1,3 +1,5 @@
+import json
+
 class Node:
     def __init__(self, val):
         self.val = val
@@ -47,33 +49,56 @@ def r5(node):
     siblings.discard(node)
     return siblings
 
-root = Node("root")
-manager_1 = Node("manager_1")
-manager_2 = Node("manager_2")
-employee_1_1 = Node("employee_1_1")
-employee_1_2 = Node("employee_1_2")
-employee_2_1 = Node("employee_2_1")
-employee_2_2 = Node("employee_2_2")
-
-add_connection(root, manager_1)
-add_connection(root, manager_2)
-add_connection(manager_1, employee_1_1)
-add_connection(manager_1, employee_1_2)
-add_connection(manager_2, employee_2_1)
-add_connection(manager_2, employee_2_2)
-
-nodes = [root, manager_1, manager_2, employee_1_1, employee_1_2, employee_2_1, employee_2_2]
-results = {}
-
-for node in nodes:
-    results[node.value] = {
-        "r1": len(r1(node)),
-        "r2": len(r2(node)),
-        "r3": len(r3(node)),
-        "r4": len(r4(node)),
-        "r5": len(r5(node))
-    }
+def build_tree_from_json(json_string):
+    data = json.loads(json_string)
+    nodes = {}
     
-print(f"{'Node':<3}{'r1':<20} {'r2':<20} {'r3':<20} {'r4':<20} {'r5':<20}")
-for node, info in results.items():
-    print(f"{node:<3} {str(info['r1']):<20} {str(info['r2']):<20} {str(info['r3']):<20} {str(info['r4']):<20} {str(info['r5']):<20}")
+    def create_node(key):
+        if key not in nodes:
+            nodes[key] = Node(key)
+        return nodes[key]
+    
+    def traverse(data, chief_node=None):
+        for key, value in data.items():
+            current_node = create_node(key)
+            if chief_node:
+                add_connection(chief_node, current_node)
+            traverse(value, current_node)
+    
+    traverse(data)
+    return nodes
+
+def main():
+    test_string = '''{
+        "1": {
+            "2": {
+                "3": {
+                    "5": {},
+                    "6": {}
+                },
+                "4": {
+                    "7": {},
+                    "8": {}
+                }
+            }
+        }
+    }'''
+    
+    nodes = build_tree_from_json(test_string)
+    
+    results = {}
+    for node_key, node in nodes.items():
+        results[node.val] = {
+            "r1": len(r1(node)),
+            "r2": len(r2(node)),
+            "r3": len(r3(node)),
+            "r4": len(r4(node)),
+            "r5": len(r5(node))
+        }
+    
+    print(f"{'Node':<3} {'r1':<20} {'r2':<20} {'r3':<20} {'r4':<20} {'r5':<20}")
+    for node_key, info in sorted(results.items()):
+        print(f"{node_key:<3} {str(info['r1']):<20} {str(info['r2']):<20} {str(info['r3']):<20} {str(info['r4']):<20} {str(info['r5']):<20}")
+
+if __name__ == "__main__":
+    main()
