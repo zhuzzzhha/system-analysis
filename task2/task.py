@@ -1,151 +1,104 @@
-from aiogram import Bot, Dispatcher
-from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.filters import Command
-import asyncio
-import logging
-from aiogram.types import FSInputFile
-from pathlib import Path
+import json
 
+class Node:
+    def __init__(self, val):
+        self.val = val
+        self.subordinates = []
+        self.chief = None
 
-# Включаем логирование
-logging.basicConfig(level=logging.INFO)
+def add_connection(chief, subordinate):
+    chief.subordinates.append(subordinate)
+    subordinate.chief = chief
 
-# Укажите токен бота
-API_TOKEN = "7754673241:AAGhe1h9muCl1W8B5aFreT0ihpLQxbu0u_Q"
+def get_all_ancestors(node):
+    ancestors = set()
+    cur = node.chief
+    while cur:
+        ancestors.add(cur)
+        cur = cur.chief
+    return ancestors
 
-# Создаем бота и диспетчер
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher()
+def get_all_descendants(node):
+    descendants = set()
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        for subordinate in current.subordinates:
+            descendants.add(subordinate)
+            stack.append(subordinate)
+    return descendants
 
-# Создаем клавиатуру
+def r1(node):
+    return set(node.subordinates)
 
-main_menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="📚 Курсы")],
-        [KeyboardButton(text="📅 Расписание")],
-        [KeyboardButton(text="📞 Контакты")],
-        [KeyboardButton(text="❓ Задать вопрос")],
-    ],
-    resize_keyboard=True
-)
+def r2(node):
+    return {node.chief} if node.chief else set()
 
-courses_names = {"Картина маслом за 3 часа",
-                 "Курс живописи маслом",
-                 "Интерьерная картина",
-                 "Fashion-иллюстрация",
-                 "Акварель",
-                  "Рисование на планшете"
-                 }
+def r3(node):
+    all_descendants = get_all_descendants(node)
+    return all_descendants - r1(node)
 
-courses_menu = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text="1", callback_data="course_1")],
-        [InlineKeyboardButton(text="2", callback_data="course_2")],
-        [InlineKeyboardButton(text="3", callback_data="course_3")],
-        [InlineKeyboardButton(text="4", callback_data="course_4")],
-        [InlineKeyboardButton(text="5", callback_data="course_5")],
-        [InlineKeyboardButton(text="6", callback_data="course_6")],
-        [InlineKeyboardButton(text="Назад", callback_data="back")]
-    ]
-)
+def r4(node):
+    all_ancestors = get_all_ancestors(node)
+    return all_ancestors - r2(node)
 
-# Обработчик команды /start
-@dp.message(Command("start"))
-async def send_welcome(message: Message):
-    await message.answer(
-        "Привет! Я бот школы рисования \"Пикассо\". Чем могу помочь?",
-        reply_markup=main_menu
-    )
+def r5(node):
+    if not node.chief:
+        return set()
+    siblings = set(node.chief.subordinates)
+    siblings.discard(node)
+    return siblings
 
-# # Обработчик кнопки "📚 Курсы"
-# @dp.message(lambda message: message.text == "📚 Курсы")
-# async def courses(message: Message):
-#     response = (
-#         f"🎨 Наши курсы:\n"
-#         "1. {courses_names[0]}\n"
-#         "2. {courses_names[1]}\n"
-#         "3. {courses_names[2]}\n"
-#         "4. {courses_names[3]}\n"
-#         "5. {courses_names[4]}\n"
-#         "6. {courses_names[5]}\n\n"
-#         "Напишите номер курса, чтобы узнать подробности."
-#     )
-#     await message.answer(response, reply_markup=courses_menu)
-
-# @dp.callback_query(lambda c: c.data.startswith("course_"))
-# async def course_details(callback_query):
-#     course_number = int(callback_query.data.split("_")[1])  # Извлекаем номер курса из callback_data
+def build_tree_from_json(json_string):
+    data = json.loads(json_string)
+    nodes = {}
     
-#     # Формируем запрос для генерации описания курса
-#     prompt = f"Напиши описание курса под названием {courses_names[course_number - 1]} в школе рисования."
+    def create_node(key):
+        if key not in nodes:
+            nodes[key] = Node(key)
+        return nodes[key]
     
-#     # Генерация ответа от модели
-#     description = generate_response(prompt)  # Генерация описания курса с использованием модели
+    def traverse(data, chief_node=None):
+        for key, value in data.items():
+            current_node = create_node(key)
+            if chief_node:
+                add_connection(chief_node, current_node)
+            traverse(value, current_node)
     
-#     # Отправляем описание курса пользователю
-#     await callback_query.message.answer(description, reply_markup=courses_menu)
-#     await callback_query.answer()  # Подтверждаем обработку callback
+    traverse(data)
+    return nodes
 
-# Обработчик кнопки "Назад"
-@dp.callback_query(lambda c: c.data == "back")
-async def back_to_courses(callback_query):
-    await callback_query.message.answer(
-        "Выберите курс, чтобы узнать подробности:",
-        reply_markup=courses_menu
-    )
-    await callback_query.answer()  # Подтверждаем обработку callback
-
-# Обработчик кнопки "📅 Расписание"
-@dp.message(lambda message: message.text == "📅 Расписание")
-async def schedule(message: Message):
-    response_text = (
-        "🕒 Наше расписание:\n"
-    )
-    images_dir = Path(__file__).resolve().parent / "images"
-    image_path = images_dir / "schedule.jpg"
-
-    # Отправка изображения
-    image = FSInputFile(image_path)  # Загружаем файл
-    await message.answer_photo(photo=image, caption=response_text)
-
-# Обработчик кнопки "📞 Контакты"
-@dp.message(lambda message: message.text == "📞 Контакты")
-async def contacts(message: Message):
-    response = (
-        "📞 Контакты:\n"
-        "Телефон: +7 (123) 456-78-90\n"
-        "Email: info@picasso-school.com\n"
-        "Адрес: ул. Импрессионистов, д. 10, г. Москва"
-    )
-    await message.answer(response)
-
-# Обработчик кнопки "❓ Задать вопрос"
-@dp.message(lambda message: message.text == "❓ Задать вопрос")
-async def ask_question(message: Message):
-    await message.answer(
-        "📩 Напишите ваш вопрос, и мы постараемся ответить как можно скорее!"
-    )
-
-# Обработчик текстовых сообщений для вопросов
-@dp.message()
-async def handle_questions(message: Message):
-    user_question = message.text
-    await message.answer(
-        "Ваш вопрос принят! Мы ответим вам в ближайшее время."
-    )
-    # Можно добавить функционал отправки вопроса администратору
-    admin_id = 123456789  # Укажите ID администратора
-    await bot.send_message(admin_id, f"Вопрос от {message.from_user.full_name}: {user_question}")
-
-async def remove_webhook():
-    await bot.delete_webhook()
-
-async def main():
-    # Удаляем вебхук перед началом работы
-    await remove_webhook()
-    # Запуск бота
-    await dp.start_polling(bot)
+def main():
+    test_string = '''{
+        "1": {
+            "2": {
+                "3": {
+                    "5": {},
+                    "6": {}
+                },
+                "4": {
+                    "7": {},
+                    "8": {}
+                }
+            }
+        }
+    }'''
+    
+    nodes = build_tree_from_json(test_string)
+    
+    results = {}
+    for node_key, node in nodes.items():
+        results[node.val] = {
+            "r1": len(r1(node)),
+            "r2": len(r2(node)),
+            "r3": len(r3(node)),
+            "r4": len(r4(node)),
+            "r5": len(r5(node))
+        }
+    
+    print(f"{'Node':<3} {'r1':<20} {'r2':<20} {'r3':<20} {'r4':<20} {'r5':<20}")
+    for node_key, info in sorted(results.items()):
+        print(f"{node_key:<3} {str(info['r1']):<20} {str(info['r2']):<20} {str(info['r3']):<20} {str(info['r4']):<20} {str(info['r5']):<20}")
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    main()
