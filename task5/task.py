@@ -1,27 +1,44 @@
 import json
+import numpy as np
 
-def main(ranking_json1, ranking_json2):
-    ranking1 = json.loads(ranking_json1)
-    ranking2 = json.loads(ranking_json2)
-
-    def extract_elements(ranking):
-        elements = []
-        for item in ranking:
-            if isinstance(item, list):
-                elements.extend(item)
+def fill_matrix(matrix):
+    ranks = {}
+    for index in range(len(matrix)):
+        if isinstance(matrix[index], list):
+            for elem in matrix[index]:
+                ranks[elem] = index
+        else:
+            ranks[matrix[index]] = index
+    
+    rank_matrix = []
+    for i in range(1,len(ranks) + 1):
+        row = []
+        for key, name in ranks.items():
+            if ranks[key] >= ranks[i]:
+                row.append(1)
             else:
-                elements.append(item)
-        return set(elements)
+                row.append(0)
+        rank_matrix.append(row)
 
-    elements1 = extract_elements(ranking1)
-    elements2 = extract_elements(ranking2)
+    return rank_matrix
 
-    conflict_core = []
-    for elem in elements1:
-        if elem not in elements2:
-            conflict_core.append(str(elem))
+def calc_K(matrix_a, matrix_b):
+    matrix_a, matrix_b = np.array(matrix_a), np.array(matrix_b)
+    Y_AB = matrix_a * matrix_b
+    Y_AB_t = matrix_a.transpose() * matrix_b.transpose()
+    K = np.logical_or(Y_AB, Y_AB_t)
+    print(K)
 
-    return json.dumps([conflict_core])
 
-if __name__ == "__main__":
-    main()
+
+def main(A, B):
+    Y_a = fill_matrix(A)
+    Y_b = fill_matrix(B)
+
+    calc_K(Y_a, Y_b)
+
+A = [1,[2,3],4,[5,6,7],8,9,10]
+B = [[1,2],[3,4,5,],6,7,9,[8,10]]
+main(A, B)
+
+
